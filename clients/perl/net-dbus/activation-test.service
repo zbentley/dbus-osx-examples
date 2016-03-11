@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=com.zbentley.ipc.gelatin
+Exec=/usr/local/bin/perlbrew exec --with perl-5.18.4@gelatin-ipc perl server.pl
+User=zbentley
