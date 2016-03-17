@@ -3,15 +3,14 @@ index 40ff370..517d56c 100644
 --- a/bus/org.freedesktop.dbus-session.plist.in
 +++ b/bus/org.freedesktop.dbus-session.plist.in
 @@ -8,11 +8,8 @@
-        <key>ServiceIPC</key>
-        <true/>
-
--       <!-- Please uncomment on 10.4; OnDemand doesn't work properly there. -->
--       <!--
-        <key>OnDemand</key>
-        <false />
--       -->
-
-        <key>ProgramArguments</key>
-        <array>
-
+ 	<key>ServiceIPC</key>
+ 	<true/>
+ 
+-	<!-- Please uncomment on 10.4; OnDemand doesn't work properly there. -->
+-	<!--
+ 	<key>OnDemand</key>
+ 	<false />
+-	-->
+ 
+ 	<key>ProgramArguments</key>
+ 	<array>
