@@ -18,3 +18,4 @@ index 40ff370..3c77fa9 100644
         <key>ProgramArguments</key>
         <array>
                 <string>@DBUS_DAEMONDIR@/dbus-daemon</string>
+
