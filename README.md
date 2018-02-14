@@ -8,7 +8,7 @@ The DBus tools are powerful, mature, and robust, but the project doesn't have an
 
 - The `installation` directory contains a guide on various ways to configure and test DBus on Mac OSX.
 - The `homebrew-patches` directory contains patches to DBus Homebrew formulae, already merged. It only exists for archival reasons. 
-- The `examples` directory will eventually contain example client/server implementations in various different languages. For now, it only has an (unfinished) Perl example.
+- The `examples` directory will eventually contains client/server implementations in various different languages. For now, it only has a (skeleton) Perl example.
 
 # FAQ
 
