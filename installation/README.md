@@ -50,7 +50,7 @@ To tell launchd about dbus, copy the files into the appropriate `LaunchAgents` d
 The Homebrew formula suggests the following command:
 
 ```bash
-ln -sfv /usr/local/opt/d-bus/*.plist ~/Library/LaunchAgents
+ln -sfv /usr/local/opt/dbus/*.plist ~/Library/LaunchAgents
 ```
 
 However, there are some pointless lines in the distributed `org.freedesktop.dbus-session.plist` file that comes with the DBus Homebrew package. Unless you're running OSX < 10.8, you can omit some cruft from that file and prevent launchd from spamming a lot of your logs with deprecated-feature notifications. To do that, don't do the above symlink operation, and instead install the `org.freedesktop.dbus-session.plist`  included with this repository into `~/Library/LaunchAgents`.
