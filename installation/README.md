@@ -75,7 +75,7 @@ Starting the daemon in manual mode can be a bit confiusing: the default DBus con
 
 You can change how DBus tries to get its main socket address in one of two ways:
 
-1. By changing the session daemon config. The session bus config used by default is in `$(brew --prefix dbus)/share/dbus.1/session.conf`; search for the value of the `<listen>` configuration key, and replace it with the result of `echo unix:path=$MY_SESSION_BUS_SOCKET`. You can either edit that file (make sure to revert your edits if you ever do want to use `launchd` to manage DBus), or make a new one and supply that file to the `dbus-daemon` command with the `--config-file` switch.
+1. By changing the session daemon config. The session bus config used by default is in `$(brew --prefix dbus)/share/dbus-1/session.conf`; search for the value of the `<listen>` configuration key, and replace it with the result of `echo unix:path=$MY_SESSION_BUS_SOCKET`. You can either edit that file (make sure to revert your edits if you ever do want to use `launchd` to manage DBus), or make a new one and supply that file to the `dbus-daemon` command with the `--config-file` switch.
 	- If you choose this method, the daemon can be started via `dbus-daemon --session` or `dbus-launch`.
 2. By overriding the config-file-set value when you start the daemon, with the `--address`. This is easier.
 	- If you choose this method, the daemon can be started via `dbus-daemon --session --nofork --address unix:path=$MY_SESSION_BUS_SOCKET`
