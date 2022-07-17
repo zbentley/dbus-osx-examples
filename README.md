@@ -13,9 +13,9 @@ The DBus tools are powerful, mature, and robust, but the project doesn't have an
 # FAQ
 
 - "A program I'm using which interacts with dbus can't connect! What should I do?"
-        - A local dbus daemon likely is not running; check `ps -ef | grep [d]bus` to be sure.
-        - The easiest way to get a local dbus daemon running is to use the [Homebrew](https://brew.sh/) package manager. If you haven't already, run `brew install dbus`. 
-        - If dbus is already installed, ensure it is running (`brew info dbus` should tell you whether or not it is). If it's not running, it can be started and set to launch at login via `brew services start dbus`.
+	- A local dbus daemon likely is not running; check `ps -ef | grep [d]bus` to be sure.
+	- The easiest way to get a local dbus daemon running is to use the [Homebrew](https://brew.sh/) package manager. If you haven't already, run `brew install dbus`. 
+	- If dbus is already installed, ensure it is running (`brew info dbus` should tell you whether or not it is). If it's not running, it can be started and set to launch at login via `brew services start dbus`.
 - "A program I'm installing says it just needs `dbus-devel` or the DBus headers; how can I just get those?"
 	- First: the `-devel` headers are installed along with the DBus homebrew package. They're in `$(brew --prefix dbus)/include`.
 	- Second: most programs that require the `dbus-devel` also assume that DBus itself is a) installed, b) configured, c) running, and d) has certain common (usually Linux-specific) services online. On OSX, none of these things can be relied upon. For example, many programs that require `dbus-devel` use that package to compile interfaces for DBus services that respond to, for example, volume button press events, or CD drive load/unload events. Such programs will usually malfunction on OSX unless the DBus *services* they depend on are also present. Installing those services can require some research and work. To avoid these (often sneaky) issues, always check what `dbus-devel` is required for, and if there's a way to either prevent the compile-time requirement for DBus, or a way to disable the compiled application's dependence onf DBus. The assumption of DBus service availability based on header availability is, unfortunately, a common one.
