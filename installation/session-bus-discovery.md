@@ -4,11 +4,11 @@ On Linux, programs usually find the session bus through the `DBUS_SESSION_BUS_AD
 
 If you haven't set up a session bus yet, do that first; see [the installation guide](README.md).
 
-> **Unverified on current macOS.** In a test on macOS 27.2 with Homebrew dbus 1.16.2, bootstrapping the packaged `org.freedesktop.dbus-session.plist` left `launchctl getenv DBUS_LAUNCHD_SESSION_BUS_SOCKET` empty, and `dbus-send --session` still failed. The launchd lookup described below, and the `DBUS_SESSION_BUS_ADDRESS` fix built on it, may not work there. This page will be updated once that's diagnosed.
+> **Short version for current macOS.** On macOS 27.2 with Homebrew dbus 1.16.2, the launchd integration described below does not give programs a usable bus: the job loads, but launchd no longer publishes its socket where clients look for it. What does work is starting a session bus yourself and exporting its address; see [Fix: Start a Bus and Tell Programs Where It Is](#fix-start-a-bus-and-tell-programs-where-it-is).
 
-## How the launchd Integration Works
+## How the launchd Integration Is Meant to Work
 
-The Homebrew session bus is started by `launchd`, not by your shell or login session. The pieces fit together like this:
+The Homebrew session bus is designed to be started by `launchd`, not by your shell or login session. The pieces fit together like this:
 
 1. **launchd owns the socket.** The `org.freedesktop.dbus-session.plist` launch agent has a `Sockets` entry with a `SecureSocketWithKey` of `DBUS_LAUNCHD_SESSION_BUS_SOCKET`. When the agent is loaded, launchd creates a Unix socket at a random path (something like `/private/tmp/com.apple.launchd.AbCdEf1234/unix_domain_listener`) and publishes that path in *launchd's* environment under the name `DBUS_LAUNCHD_SESSION_BUS_SOCKET`.
 2. **The daemon is started on demand.** `dbus-daemon` is not necessarily running just because the agent is loaded. launchd starts it when the first client connects to the socket. So `ps -ef | grep [d]bus` can come up empty on a perfectly working setup; the check that matters is whether the socket exists (below).
@@ -21,7 +21,9 @@ The important detail in steps 1 and 4 is that `DBUS_LAUNCHD_SESSION_BUS_SOCKET` 
 launchctl getenv DBUS_LAUNCHD_SESSION_BUS_SOCKET
 ```
 
-If that prints a path, the session bus agent is loaded and clients that understand launchd will find it. If it prints nothing, the agent isn't loaded; load it with the `launchctl` steps in the [installation guide](README.md). (`brew services start dbus` currently fails with Homebrew's dbus 1.16.2; see issue #4.)
+If that prints a path, the session bus agent is loaded and clients that understand launchd will find it.
+
+**On macOS 27.2 this prints nothing, even with the agent loaded.** In testing with Homebrew dbus 1.16.2, `launchctl bootstrap gui/$(id -u) $(brew --prefix dbus)/org.freedesktop.dbus-session.plist` loaded the job, but `launchctl getenv DBUS_LAUNCHD_SESSION_BUS_SOCKET` stayed empty and `dbus-send --session` still failed. The socket path only shows up in the output of `launchctl print gui/$(id -u)`. Pointing `DBUS_SESSION_BUS_ADDRESS` at that path by hand hasn't been tested. (`brew services start dbus` also fails with this version; see issue #4.)
 
 The socket path changes every time the agent is loaded (typically once per login), so never hardcode it anywhere.
 
@@ -41,30 +43,20 @@ A `libdbus` client such as `dbus-send`, when it can't find the bus, prints a mes
 Using X11 for dbus-daemon autolaunch was disabled at compile time, verify that org.freedesktop.dbus-session.plist is loaded or set your DBUS_SESSION_BUS_ADDRESS instead
 ```
 
-Programs hit this when they don't know about launchd. The usual culprit is GLib's GDBus (used by GTK/GNOME programs such as Fractal, `gnome-keyring`, `gsettings` and friends). When `DBUS_SESSION_BUS_ADDRESS` is unset, GDBus falls back to autolaunching via `dbus-launch`. Newer GLib releases ask launchd for `DBUS_LAUNCHD_SESSION_BUS_SOCKET` on macOS first, so upgrading GLib (`brew upgrade glib`) may be enough. For programs built against an older GLib, or that bundle their own D-Bus client, use the fix below.
+Programs hit this when there's no `DBUS_SESSION_BUS_ADDRESS` and they can't get a bus from launchd (which, on current macOS, is all of them). The usual culprit is GLib's GDBus (used by GTK/GNOME programs such as Fractal, `gnome-keyring`, `gsettings` and friends). When `DBUS_SESSION_BUS_ADDRESS` is unset, GDBus falls back to autolaunching via `dbus-launch`. Newer GLib releases ask launchd for `DBUS_LAUNCHD_SESSION_BUS_SOCKET` on macOS first, but that only helps where launchd actually publishes the variable, which it doesn't on macOS 27.2. Either way, the fix below works.
 
-This is not a problem with the bus. The bus is running (or ready to start on demand); the program just doesn't know how to find it.
+## Fix: Start a Bus and Tell Programs Where It Is
 
-## Fix: Tell the Program Where the Bus Is
+Every D-Bus client library honors `DBUS_SESSION_BUS_ADDRESS`, and if it's set they skip launchd and autolaunch entirely. So the reliable fix is to start a session bus yourself and export its address.
 
-Every D-Bus client library honors `DBUS_SESSION_BUS_ADDRESS`, and if it's set they skip autolaunch entirely. Set it from launchd's value:
+This was tested on macOS 27.2 with Homebrew dbus 1.16.2:
 
 ```bash
-export DBUS_SESSION_BUS_ADDRESS="unix:path=$(launchctl getenv DBUS_LAUNCHD_SESSION_BUS_SOCKET)"
+DBUS_SESSION_BUS_ADDRESS=$(dbus-daemon --session --fork --print-address=1 --address=unix:tmpdir=$TMPDIR)
+export DBUS_SESSION_BUS_ADDRESS
 ```
 
-Use the `unix:path=` form rather than `launchd:env=DBUS_LAUNCHD_SESSION_BUS_SOCKET`: only `libdbus` understands the `launchd:` address type, while `unix:path=` works with GDBus, sd-bus, pure-language implementations, and everything else.
-
-Where to put it:
-
-- **Programs started from a terminal:** add the `export` line to your shell startup file (`~/.zshrc` for the default macOS shell, `~/.bash_profile` for bash). Because the value is looked up when each shell starts, it stays correct across logins.
-- **GUI apps started from Finder, the Dock, or Spotlight:** these don't read shell startup files. They inherit launchd's environment, so set the variable there:
-
-  ```bash
-  launchctl setenv DBUS_SESSION_BUS_ADDRESS "unix:path=$(launchctl getenv DBUS_LAUNCHD_SESSION_BUS_SOCKET)"
-  ```
-
-  This lasts until you log out, and only affects apps launched *after* you run it. To make it permanent, run that command at login from a small launch agent of your own, or from a login script.
+`--address` overrides the `launchd:` listen address in Homebrew's `session.conf` (which would otherwise fail with `Check-in failed`), `unix:tmpdir=$TMPDIR` has the daemon create a fresh socket in your per-user temp folder, and `--print-address=1` prints the resulting `unix:path=...` address for you to export. To also print the daemon's PID (so you can `kill` it later), add `--print-pid=1`; the address is the first line of output and the PID the second.
 
 To check that the address works:
 
@@ -72,7 +64,14 @@ To check that the address works:
 dbus-send --session --print-reply --dest=org.freedesktop.DBus / org.freedesktop.DBus.ListNames
 ```
 
-That should print an array of connection names. If it hangs or errors, go back to `launchctl getenv DBUS_LAUNCHD_SESSION_BUS_SOCKET` and make sure it prints a path.
+That should print an array of connection names.
+
+Where to put it:
+
+- **Programs started from a terminal:** they need to be started from a shell that has `DBUS_SESSION_BUS_ADDRESS` exported. Running the two lines above in your shell startup file (`~/.zshrc` for the default macOS shell) would start a new bus for every shell, so programs in different terminals wouldn't see each other. If that matters, start the bus once, save the address to a file, and have your startup file export it from there.
+- **GUI apps started from Finder, the Dock, or Spotlight:** these don't read shell startup files; they inherit launchd's environment. After starting the bus, copy the address into launchd with `launchctl setenv DBUS_SESSION_BUS_ADDRESS "$DBUS_SESSION_BUS_ADDRESS"`. That lasts until you log out, and only affects apps launched *after* you run it. (This step hasn't been tested with dbus on macOS 27.2.)
+
+Use a `unix:path=` address rather than `launchd:env=DBUS_LAUNCHD_SESSION_BUS_SOCKET`: only `libdbus` understands the `launchd:` address type, while `unix:path=` works with GDBus, sd-bus, pure-language implementations, and everything else.
 
 ## Programs Also Need Their Services
 
@@ -81,7 +80,7 @@ Finding the bus is only half the job. Many programs expect other D-Bus *services
 There are two ways to get a service running:
 
 - **Start it yourself**, before (or alongside) the program that needs it. Once the service's process is running with `DBUS_SESSION_BUS_ADDRESS` set as above, it connects to the bus and claims its name.
-- **Let the bus start it (activation).** If the service ships a `.service` file (like [the one in the Perl example](../examples/perl/net-dbus/activation-test.service)), the session bus can start it automatically the first time someone calls its name. Homebrew's `session.conf` uses `<standard_session_servicedirs />`, which means the XDG data directories (`$XDG_DATA_HOME/dbus-1/services`, defaulting to `~/.local/share/dbus-1/services`, and `dbus-1/services` under each entry of `$XDG_DATA_DIRS`) plus the dbus install's own `share/dbus-1/services`. Homebrew formulae that provide D-Bus services install their `.service` files under `$(brew --prefix)/share/dbus-1/services`. Whether `~/.local/share/dbus-1/services` is scanned on macOS hasn't been confirmed yet, so check with `ListActivatableNames` (below) after adding a file there. After adding a file by hand, restart the bus or have it reload its configuration:
+- **Let the bus start it (activation).** If the service ships a `.service` file (like [the one in the Perl example](../examples/perl/net-dbus/activation-test.service)), the session bus can start it automatically the first time someone calls its name. Homebrew's `session.conf` uses `<standard_session_servicedirs />`, which means the XDG data directories (`$XDG_DATA_HOME/dbus-1/services`, defaulting to `~/.local/share/dbus-1/services`, and `dbus-1/services` under each entry of `$XDG_DATA_DIRS`) plus the dbus install's own `share/dbus-1/services`. Homebrew formulae that provide D-Bus services install their `.service` files under `$(brew --prefix)/share/dbus-1/services`; for your own services, `~/.local/share/dbus-1/services` works (confirmed on macOS 27.2 with a bus started as above). After adding a file by hand, restart the bus or have it reload its configuration:
 
   ```bash
   dbus-send --session --print-reply --dest=org.freedesktop.DBus / org.freedesktop.DBus.ReloadConfig
