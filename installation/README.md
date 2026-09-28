@@ -27,25 +27,11 @@ That command installs D-Bus under the Homebrew prefix. The prefix depends on you
 
 You can run the session bus on your system with the configuration files included in the Homebrew D-Bus distribution. There are a few ways to do this.
 
-Out of the box on macOS, D-Bus is configured to work with [`launchd`](https://launchd.info/), so it's easiest to use that (the first two methods below do). More information on the D-Bus/`launchd` integration can be found in the upstream D-Bus documentation, [`README.launchd`](https://gitlab.freedesktop.org/dbus/dbus/-/blob/main/README.launchd).
-
-#### Using Homebrew Service Management
-
-This is by far the easiest way to get a session daemon up and running. Do:
-
-```bash
-brew services start dbus
-```
-
-That starts the session bus now and sets it to start at login. `brew services stop dbus` stops it and removes it from the service registry.
-
-Do **not** run `brew services` with `sudo` for the session bus. The session bus belongs to your login session, and running Homebrew as root can leave root-owned files in the Homebrew prefix that break later `brew` commands.
-
-To see the `launchctl` commands that `brew services` is running, supply the `--verbose` switch to any `brew services` command.
+Out of the box on macOS, D-Bus is configured to work with [`launchd`](https://launchd.info/), so it's easiest to use that (the first method below does). More information on the D-Bus/`launchd` integration can be found in the upstream D-Bus documentation, [`README.launchd`](https://gitlab.freedesktop.org/dbus/dbus/-/blob/main/README.launchd).
 
 #### Using `launchd` Directly
 
-The steps below do roughly what `brew services start dbus` does, by hand.
+This is the recommended way to run the session bus.
 
 First, copy (or symlink) the session bus `.plist` into your per-user `LaunchAgents` directory (create the directory if it doesn't exist):
 
@@ -66,7 +52,13 @@ Other useful commands:
 - Check its status: `launchctl print gui/$(id -u)/org.freedesktop.dbus-session`
 - Unregister it: `launchctl bootout gui/$(id -u)/org.freedesktop.dbus-session`
 
-`launchctl load` and `launchctl unload` still exist, but Apple considers them legacy; `bootstrap` and `bootout` are the current equivalents and give more useful errors.
+The session bus will now start automatically at each login. `launchctl load` and `launchctl unload` still exist, but Apple considers them legacy; `bootstrap` and `bootout` are the current equivalents and give more useful errors.
+
+#### About `brew services`
+
+`brew install dbus` suggests running `brew services start dbus`. With the current formula (dbus 1.16.2) that command fails with `Formula dbus has not implemented #plist, #service or provided a locatable service file` (see [issue #4](https://github.com/zbentley/dbus-osx-examples/issues/4)). Use the `launchctl` steps above instead.
+
+Do **not** work around it by running `brew services` with `sudo`. The session bus belongs to your login session, and running Homebrew as root can leave root-owned files in the Homebrew prefix that break later `brew` commands.
 
 #### Manually Launching the Session Bus
 
