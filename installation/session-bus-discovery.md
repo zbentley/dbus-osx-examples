@@ -4,6 +4,8 @@ On Linux, programs usually find the session bus through the `DBUS_SESSION_BUS_AD
 
 If you haven't set up a session bus yet, do that first; see [the installation guide](README.md).
 
+> **Unverified on current macOS.** In a test on macOS 27.2 with Homebrew dbus 1.16.2, bootstrapping the packaged `org.freedesktop.dbus-session.plist` left `launchctl getenv DBUS_LAUNCHD_SESSION_BUS_SOCKET` empty, and `dbus-send --session` still failed. The launchd lookup described below, and the `DBUS_SESSION_BUS_ADDRESS` fix built on it, may not work there. This page will be updated once that's diagnosed.
+
 ## How the launchd Integration Works
 
 The Homebrew session bus is started by `launchd`, not by your shell or login session. The pieces fit together like this:
