@@ -19,7 +19,7 @@ The important detail in steps 1 and 4 is that `DBUS_LAUNCHD_SESSION_BUS_SOCKET` 
 launchctl getenv DBUS_LAUNCHD_SESSION_BUS_SOCKET
 ```
 
-If that prints a path, the session bus agent is loaded and clients that understand launchd will find it. If it prints nothing, the agent isn't loaded; start it with `brew services start dbus` or the `launchctl` steps in the [installation guide](README.md).
+If that prints a path, the session bus agent is loaded and clients that understand launchd will find it. If it prints nothing, the agent isn't loaded; load it with the `launchctl` steps in the [installation guide](README.md). (`brew services start dbus` currently fails with Homebrew's dbus 1.16.2; see issue #4.)
 
 The socket path changes every time the agent is loaded (typically once per login), so never hardcode it anywhere.
 
@@ -27,11 +27,16 @@ The socket path changes every time the agent is loaded (typically once per login
 
 "Autolaunch" is a mechanism for finding (or starting) a session bus that belongs to an X11 display. `dbus-launch --autolaunch` records the bus address on the X server, so every program on the same display shares one bus. It needs `dbus-launch` to be built with X11 support.
 
-Homebrew's `dbus` is built without X11, and a normal macOS desktop has no X display anyway. So when a program runs `dbus-launch --autolaunch=...`, it fails, typically with:
+Homebrew's `dbus` is built without X11, and a normal macOS desktop has no X display anyway. So when no session bus address can be found, autolaunch fails. With Homebrew's dbus 1.16.2, running `dbus-launch --autolaunch=...` prints this and exits with status 1:
 
 ```
-Autolaunch requested, but X11 support not compiled in.
-Cannot continue.
+No existing session bus was found, and X11 autolaunch support was disabled at compile time.
+```
+
+A `libdbus` client such as `dbus-send`, when it can't find the bus, prints a message that names the fix:
+
+```
+Using X11 for dbus-daemon autolaunch was disabled at compile time, verify that org.freedesktop.dbus-session.plist is loaded or set your DBUS_SESSION_BUS_ADDRESS instead
 ```
 
 Programs hit this when they don't know about launchd. The usual culprit is GLib's GDBus (used by GTK/GNOME programs such as Fractal, `gnome-keyring`, `gsettings` and friends). When `DBUS_SESSION_BUS_ADDRESS` is unset, GDBus falls back to autolaunching via `dbus-launch`. Newer GLib releases ask launchd for `DBUS_LAUNCHD_SESSION_BUS_SOCKET` on macOS first, so upgrading GLib (`brew upgrade glib`) may be enough. For programs built against an older GLib, or that bundle their own D-Bus client, use the fix below.
@@ -74,7 +79,7 @@ Finding the bus is only half the job. Many programs expect other D-Bus *services
 There are two ways to get a service running:
 
 - **Start it yourself**, before (or alongside) the program that needs it. Once the service's process is running with `DBUS_SESSION_BUS_ADDRESS` set as above, it connects to the bus and claims its name.
-- **Let the bus start it (activation).** If the service ships a `.service` file (like [the one in the Perl example](../examples/perl/net-dbus/activation-test.service)), the session bus can start it automatically the first time someone calls its name. The Homebrew session bus looks for these files in `$(brew --prefix)/share/dbus-1/services` and `~/.local/share/dbus-1/services`. Homebrew formulae that provide D-Bus services usually install their `.service` files into the first location already. After adding a file by hand, restart the bus or have it reload its configuration:
+- **Let the bus start it (activation).** If the service ships a `.service` file (like [the one in the Perl example](../examples/perl/net-dbus/activation-test.service)), the session bus can start it automatically the first time someone calls its name. Homebrew's `session.conf` uses `<standard_session_servicedirs />`, which means the XDG data directories (`$XDG_DATA_HOME/dbus-1/services`, defaulting to `~/.local/share/dbus-1/services`, and `dbus-1/services` under each entry of `$XDG_DATA_DIRS`) plus the dbus install's own `share/dbus-1/services`. Homebrew formulae that provide D-Bus services install their `.service` files under `$(brew --prefix)/share/dbus-1/services`. Whether `~/.local/share/dbus-1/services` is scanned on macOS hasn't been confirmed yet, so check with `ListActivatableNames` (below) after adding a file there. After adding a file by hand, restart the bus or have it reload its configuration:
 
   ```bash
   dbus-send --session --print-reply --dest=org.freedesktop.DBus / org.freedesktop.DBus.ReloadConfig
