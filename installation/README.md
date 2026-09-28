@@ -25,15 +25,28 @@ That command installs D-Bus under the Homebrew prefix. The prefix depends on you
 
 ### Session Bus
 
-You can run the session bus on your system with the configuration files included in the Homebrew D-Bus distribution. There are a few ways to do this.
+You can run the session bus on your system with the configuration files included in the Homebrew D-Bus distribution. There are a few ways to do this. On current macOS, the Quick Start and the manual method work; the `launchd` method currently does not.
 
-Out of the box on macOS, D-Bus is configured to work with [`launchd`](https://launchd.info/), so it's easiest to use that (the first method below does). More information on the D-Bus/`launchd` integration can be found in the upstream D-Bus documentation, [`README.launchd`](https://gitlab.freedesktop.org/dbus/dbus/-/blob/main/README.launchd).
+#### Quick Start
+
+This was verified on macOS 27.2 (arm64) with dbus 1.16.2_1. It starts a session bus in the background and points programs in your current shell at it:
+
+```bash
+set -- $(dbus-daemon --session --fork --print-address=1 --print-pid=1 --address=unix:tmpdir=$TMPDIR)
+export DBUS_SESSION_BUS_ADDRESS=$1 DBUS_SESSION_BUS_PID=$2
+```
+
+Programs started from that shell will find the bus through `DBUS_SESSION_BUS_ADDRESS`. The bus doesn't survive a logout, and programs started from elsewhere (other terminals, the Dock) won't see it unless they get the same variable. Running these lines in your shell profile would start a separate bus for every terminal, so if you need one shared bus, write the address to a file once and have your profile read it.
+
+To stop the bus, run `kill $DBUS_SESSION_BUS_PID`.
+
+More information on the D-Bus/`launchd` integration can be found in the upstream D-Bus documentation, [`README.launchd`](https://gitlab.freedesktop.org/dbus/dbus/-/blob/main/README.launchd).
 
 #### Using `launchd` Directly
 
-This is the recommended way to run the session bus.
+This is how D-Bus is meant to run on macOS, but it does not currently work on its own.
 
-> **Unverified on current macOS.** In a test on macOS 27.2 (arm64) with dbus 1.16.2_1, `launchctl bootstrap` accepted the packaged plist without error, but `launchctl getenv DBUS_LAUNCHD_SESSION_BUS_SOCKET` stayed empty and `dbus-send --session` could not connect. This is still being investigated. Until it's resolved, [manually launching the session bus](#manually-launching-the-session-bus) is the most reliable option.
+> **Known issue on current macOS.** On macOS 27.2 (arm64) with dbus 1.16.2_1, the steps below load the job, and `launchctl print` shows the socket that `launchd` created for it (under `/var/run/com.apple.launchd.*/`). However, `launchctl getenv DBUS_LAUNCHD_SESSION_BUS_SOCKET` returns nothing, so programs using the default `launchd:` address can't find the bus. Pointing `DBUS_SESSION_BUS_ADDRESS` at that socket with `unix:path=` may work around it, but that hasn't been tested. Until this is resolved, use the [Quick Start](#quick-start) above.
 
 First, copy (or symlink) the session bus `.plist` into your per-user `LaunchAgents` directory (create the directory if it doesn't exist):
 
@@ -54,11 +67,11 @@ Other useful commands:
 - Check its status: `launchctl print gui/$(id -u)/org.freedesktop.dbus-session`
 - Unregister it: `launchctl bootout gui/$(id -u)/org.freedesktop.dbus-session`
 
-The session bus will now start automatically at each login. `launchctl load` and `launchctl unload` still exist, but Apple considers them legacy; `bootstrap` and `bootout` are the current equivalents and give more useful errors.
+If it works on your system, the session bus will now start automatically at each login. `launchctl load` and `launchctl unload` still exist, but Apple considers them legacy; `bootstrap` and `bootout` are the current equivalents and give more useful errors.
 
 #### About `brew services`
 
-`brew install dbus` suggests running `brew services start dbus`. With the current formula (dbus 1.16.2) that command fails with `Formula dbus has not implemented #plist, #service or provided a locatable service file` (see [issue #4](https://github.com/zbentley/dbus-osx-examples/issues/4)). Use the `launchctl` steps above instead.
+`brew install dbus` suggests running `brew services start dbus`. With the current formula (dbus 1.16.2_1) that command fails with `Formula dbus has not implemented #plist, #service or provided a locatable service file` (see [issue #4](https://github.com/zbentley/dbus-osx-examples/issues/4)). Use the [Quick Start](#quick-start) above instead.
 
 Do **not** work around it by running `brew services` with `sudo`. The session bus belongs to your login session, and running Homebrew as root can leave root-owned files in the Homebrew prefix that break later `brew` commands.
 
