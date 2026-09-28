@@ -28,6 +28,8 @@ You can run the session bus on your system with the configuration files included
 
 Out of the box on OSX, DBus is configured to work with [`launchd`](http://launchd.info/), so it's easiest to use that (the first two methods below do). More information on the DBus-`launchd` integration can be found in the DBus documentation, [here](https://github.com/brianmcgillion/DBus/blob/master/README.launchd).
 
+For how programs find a launchd-managed session bus (and what to do when they can't), see [How Programs Find the Session Bus on macOS](session-bus-discovery.md).
+
 
 #### Using Homebrew Service Management
 
