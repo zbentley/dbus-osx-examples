@@ -33,6 +33,8 @@ Out of the box on macOS, D-Bus is configured to work with [`launchd`](https://la
 
 This is the recommended way to run the session bus.
 
+> **Unverified on current macOS.** In a test on macOS 27.2 (arm64) with dbus 1.16.2_1, `launchctl bootstrap` accepted the packaged plist without error, but `launchctl getenv DBUS_LAUNCHD_SESSION_BUS_SOCKET` stayed empty and `dbus-send --session` could not connect. This is still being investigated. Until it's resolved, [manually launching the session bus](#manually-launching-the-session-bus) is the most reliable option.
+
 First, copy (or symlink) the session bus `.plist` into your per-user `LaunchAgents` directory (create the directory if it doesn't exist):
 
 ```bash
