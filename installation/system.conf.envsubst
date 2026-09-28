@@ -1,3 +1,10 @@
+<!-- ARCHIVAL: this template predates Homebrew shipping a system bus
+     config and launchd plist. Prefer the packaged system.conf in the
+     Homebrew dbus package's share/dbus-1 directory, and the setup steps
+     in installation/README.md. To render this template anyway, set
+     DBUS_INSTALL_DIR (the dbus package directory), HOMEBREW_PREFIX,
+     DBUS_SYSTEM_BUS_USER and DBUS_SYSTEM_BUS_SOCKET, then run envsubst. -->
+
 <!-- This configuration file controls the systemwide message bus.
      Add a system-local.conf and edit that rather than changing this 
      file directly. -->
@@ -27,7 +34,7 @@
   <servicehelper>$DBUS_INSTALL_DIR/libexec/dbus-daemon-launch-helper</servicehelper>
 
   <!-- Write a pid file -->
-  <pidfile>/usr/local/var/run/dbus/pid</pidfile>
+  <pidfile>$HOMEBREW_PREFIX/var/run/dbus/pid</pidfile>
 
   <!-- Enable logging to syslog -->
   <syslog/>

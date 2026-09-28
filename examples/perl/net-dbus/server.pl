@@ -5,7 +5,7 @@ use strict;
 use warnings FATAL => 'all';
 use feature "say";
 
-# We have two packages in this file, one creating the requied DBus
+# We have two packages in this file, one creating the required DBus
 # API and one running the server script ("main"). As a result, the
 # package declaration is a bit further down than usual. In production,
 # these would likely be separate .pm/.pl files.
@@ -43,9 +43,11 @@ package main;
 use Net::DBus;
 use Net::DBus::Reactor;
 
-# Switch the below two lines (uncomment) if using launchd:
-# my $address = local $ENV{DBUS_SESSION_BUS_ADDRESS} = "launchd:env=DBUS_LAUNCHD_SESSION_BUS_SOCKET";
-my $address = local $ENV{DBUS_SESSION_BUS_ADDRESS} = "unix:path=tst";
+# By default, talk to the bus started from this directory's session.conf.
+# To use the launchd-managed session bus instead, run with
+# DBUS_SESSION_BUS_ADDRESS=launchd:env=DBUS_LAUNCHD_SESSION_BUS_SOCKET
+my $address = local $ENV{DBUS_SESSION_BUS_ADDRESS} =
+    $ENV{DBUS_SESSION_BUS_ADDRESS} // "unix:path=/tmp/dbus-perl-example.sock";
 say "Using address: $address";
 
 my $bus = Net::DBus->find;
@@ -55,8 +57,6 @@ my $service = $bus->export_service("com.website.service.identifier");
 # that, you instantiate the object with an argument of the service you want
 # to provide it.
 my $object = ServedObject->new($service);
-
-sleep 10;
 
 # The major drawback of Net::DBus is that for servers it requires its own
 # event loop. There are ways around that in CPAN, but none of them are great.

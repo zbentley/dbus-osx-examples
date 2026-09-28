@@ -1,4 +1,5 @@
 [D-BUS Service]
 Name=com.website.service.identifier
-Exec=/usr/local/bin/perlbrew exec --with perl-5.18.4 perl server.pl
-User=$USER
+# Exec needs an absolute path to the server script; change it to wherever
+# you checked out this repository.
+Exec=/usr/bin/env perl /path/to/dbus-osx-examples/examples/perl/net-dbus/server.pl
